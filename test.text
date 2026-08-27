@@ -1,0 +1,72 @@
+kubectl apply -n argocd -f https://githubusercontent.com
+
+
+https://bnerd.com/de/knowledge/articles/304-argocd-in-der-praxis-installation-konfiguration-und-application-management
+
+
+~/devops-project/
+├── docker-compose.yml             # Startet Jenkins & SonarQube
+├── jenkins-home/                  # Persistent Daten für Jenkins (Plugins, Jobs)
+└── java-app/                      # Dein Git-Repository (Anwendung & Infrastruktur)
+    ├── pom.xml                    # Maven Konfiguration (Java Abhängigkeiten)
+    ├── Jenkinsfile                # Die CI/CD Pipeline Definition (8 Stages)
+    ├── src/                       # Quellcode der Java-App
+    │   ├── main/java/...          # Anwendungscode
+    │   └── test/java/...          # JUnit / Mockito Tests
+    └── charts/                    # Helm-Ordner für Kubernetes-Deployments
+        └── java-app/
+            ├── Chart.yaml         # Metadaten des Helm-Charts
+            ├── values.yaml        # Hier ändert Jenkins das Image-Tag (GitOps)
+            └── templates/
+                ├── deployment.yaml # K8s Deployment (Pods, Container)
+                └── service.yaml    # K8s Service (Netzwerk-Zugriff)
+
+
+[ Ubuntu Host System ]
+  │
+  ├───► [ Docker Network: devops-project_default ]
+  │       │
+  │       ├──► Jenkins Container (Port 8080)
+  │       │     │ (Baut App, führt Tests aus, triggert SonarQube & Helm)
+  │       │     ▼
+  │       ├──► SonarQube Container (Port 9000)
+  │       │     ▲ (Analysiert Code-Qualität & Security)
+  │       │
+  │       └──► k3d Kubernetes-Cluster (Containerized K8s)
+  │             │
+  │             ├── Namespace: argocd ───► Argo CD Server (Port 8081)
+  │             │                            │ (Überwacht Git & synchronisiert Prod)
+  │             │                            ▼
+  │             ├── Namespace: test ─────► Java App (Test-Umgebung via Helm)
+  │             │
+  │             └── Namespace: prod ─────► Java App (Production via Argo CD)
+
+
+
+Der Lebenszyklus einer Code-Änderung (CI/CD Flow)
+Jedes Mal, wenn du Code änderst, läuft die Struktur wie folgt ab:
+
+ 1-Continuous Integration (Jenkins):
+    1- Code & Build: Jenkins holt den Code aus java-app/, 
+    Maven baut die .jar-Datei und JUnit testet sie.
+    2- Quality Gate: Der Code wird an den SonarQube-Container geschickt. 
+    Schlägt der Qualitätscheck fehl, bricht die Pipeline ab.
+    3- Containerisierung: Jenkins nutzt den Docker-Socket des Ubuntu-Hosts, 
+    baut ein neues Docker-Image (java-app:1.0.X) und taggt es.
+ 
+ 2- Continuous Deployment (Helm & Argo CD):
+  1- Test-Phase: Jenkins nutzt Helm, um das Image direkt in das k3d-Cluster (Namespace test) einzuspielen. Selenium/UAT-Tests prüfen die laufende App.
+  2- GitOps Promotion: Jenkins editiert die values.yaml im Ordner charts/ und trägt das neue Image-Tag ein.
+  3- Production: Argo CD bemerkt die Änderung in der values.yaml sofort,
+  zieht das neue Image und rollt es ohne Downtime im Namespace prod aus.
+
+Möchtest du als Nächstes:
+  Die vollständige pom.xml und Beispiel-Java-Klassen erstellen, damit die Unit-Tests wirklich laufen?
+
+  Den Befehl sehen, um das Argo CD Web-Interface mit dem lokalen Git-Ordner zu verbinden?
+
+  Hilfe beim Beheben eines Fehlers im Jenkins-Protokoll?
+
+
+  docker network disconnect devops-project_default k3d-mycluster-serverlb
+docker network disconnect devops-project_default k3d-mycluster-server-0

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:2.568.2-jdk21
+    container_name: jenkins-local
+    user: root
+    restart: always
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ./jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+    environment:
+      - TZ=Europe/Berlin
+
+  sonarqube:
+    image: sonarqube:10.4.1-community
+    container_name: sonarqube-local
+    restart: always
+    extra_hosts:
+      - "localhost:127.0.0.1"
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
